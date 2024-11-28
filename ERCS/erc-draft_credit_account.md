@@ -54,6 +54,78 @@ requires: <EIP number(s)> # Only required when you reference an EIP in the `Spec
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119 and RFC 8174.
 
+### Credit Account
+
+```solidity
+interface ICreditAccount {
+  function installCreditManagerAdapter(address creditManagerAdapter) external;
+  // function executeFromAdapter(address target, bytes calldata data) external;
+
+  // MUST implement authorization checks and execute call
+  fallback(bytes calldata data) external payable;
+}
+```
+
+Credit Account MUST implement the following functionality:
+- zero allowance for collateral tokens (? all tokens)
+- execution hooks of credit manager adapter
+- fallback function to execute calls from credit manager adapter
+
+
+#### Execution Hooks
+
+
+
+### Credit Manager Adapter
+
+```solidity
+interface ICreditManagerAdapter {
+  function onInstall() external;
+  function preExecution() external;
+  function postExecution() external;
+  function handleFallbackOrRevert(address caller, bytes calldata data) external view returns (address target, bytes memory data);
+}
+```
+
+Credit Manager Adapter MUST implement the following functionality:
+- Pre Execution
+- Post Execution
+
+Example:
+```mermaid
+sequenceDiagram
+  actor User
+  participant CreditAccount
+  participant CreditManagerAdapter
+
+  User->>CreditAccount: execute()
+  CreditAccount->>CreditManagerAdapter: preExecution()
+  CreditAccount->>CreditManagerAdapter: decreaseDebt()
+  activate CreditManagerAdapter
+    opt Exec 
+      CreditManagerAdapter->>CreditAccount: transferFrom()
+      activate CreditAccount
+      CreditAccount->>CreditManagerAdapter: handleFallbackOrRevert()
+      activate CreditManagerAdapter
+        CreditManagerAdapter-->>CreditAccount: (target, data)
+      deactivate CreditManagerAdapter
+      CreditAccount->>CreditAccount: execute(target, data)
+      deactivate CreditAccount
+    end
+  deactivate CreditManagerAdapter
+  CreditAccount->>CreditManagerAdapter: postExecution()
+```
+
+### Credit Account Factory
+
+```solidity
+interface ICreditAccountFactory {
+  function openCreditAccount(uint256 accountTypeId, uint256 creditManagerTypeId) external returns (address);
+  function closeCreditAccount(address creditAccount) external;
+  function isCreditAccount(address creditAccount) external view returns (bool);
+}
+```
+
 ## Rationale
 
 <!--
